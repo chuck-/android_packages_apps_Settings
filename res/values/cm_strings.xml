@@ -14,6 +14,14 @@
      limitations under the License.
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- Advanced, Device specific (DeviceParts) settings -->
+    <string name="advanced_settings_title">Advanced</string>
+    <!-- Applications settings screen, setting check box title. If checked, applications show more settings options. -->
+    <string name="advanced_settings">Advanced settings</string>
+    <!-- Applications settings screen, setting check box summary. This is the summary for "Advanced settings" checkbox -->
+    <string name="advanced_settings_summary">Enable more settings options</string>
+
     <!-- Wi-Fi region code -->
     <string name="wifi_setting_countrycode_title">Wi-Fi region code</string>
     <!-- Wi-Fi settings screen, setting summary for setting the wifi frequency band [CHAR LIMIT=50]-->
@@ -367,3 +375,4 @@ two in order to insert additional control points. \'Remove\' deletes the selecte
     <string name="protected_apps">Protected apps</string>
     <string name="saving_protected_components">Saving component state\u2026</string>
 </resources>
+
