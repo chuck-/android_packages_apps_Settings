@@ -81,6 +81,12 @@
             android:orientation="horizontal"
             android:paddingBottom="4dip" >
 
+            <View
+                android:id="@+id/lights_dialog_divider"
+                android:layout_width="match_parent"
+                android:layout_height="2dp"
+                android:background="@android:drawable/divider_horizontal_dark" />
+
             <Spinner
                 android:id="@+id/on_spinner"
                 android:layout_width="match_parent"

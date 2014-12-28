@@ -99,6 +99,8 @@ public class NotificationLightSettings extends SettingsPreferenceFragment implem
     public static final int ACTION_DELETE = 1;
     private static final int MENU_ADD = 0;
     private static final int DIALOG_APPS = 0;
+
+    private boolean mMultiColorNotificationLed;
     private int mDefaultColor;
     private int mDefaultLedOn;
     private int mDefaultLedOff;
@@ -121,7 +123,15 @@ public class NotificationLightSettings extends SettingsPreferenceFragment implem
         super.onCreate(savedInstanceState);
         addPreferencesFromResource(R.xml.notification_light_settings);
 
+        PreferenceScreen prefSet = getPreferenceScreen();
         Resources resources = getResources();
+
+        PreferenceGroup mGeneralPrefs = (PreferenceGroup) prefSet.findPreference("general_section");
+        PreferenceGroup mPhonePrefs = (PreferenceGroup) prefSet.findPreference("phone_list");
+
+        mMultiColorNotificationLed = resources.getBoolean(
+                com.android.internal.R.bool.config_multiColorNotificationLed);
+
         mDefaultColor = resources.getColor(
                 com.android.internal.R.color.config_defaultNotificationColor);
         mDefaultLedOn = resources.getInteger(
@@ -140,7 +150,14 @@ public class NotificationLightSettings extends SettingsPreferenceFragment implem
             (TelephonyManager) getActivity().getSystemService(Context.TELEPHONY_SERVICE);
         mVoiceCapable = tm.getPhoneType() != TelephonyManager.PHONE_TYPE_NONE;
 
-        setHasOptionsMenu(true);
+        if (mMultiColorNotificationLed) {
+            setHasOptionsMenu(true);
+        } else {
+            mGeneralPrefs.removePreference(mCustomEnabledPref);
+            prefSet.removePreference(mPhonePrefs);
+            prefSet.removePreference(mApplicationPrefList);
+            resetColors();
+        }
     }
 
     @Override
@@ -252,8 +269,10 @@ public class NotificationLightSettings extends SettingsPreferenceFragment implem
             }
         }
 
-        mApplicationPrefList = (PreferenceGroup) prefSet.findPreference("applications_list");
-        mApplicationPrefList.setOrderingAsAdded(false);
+        if (mMultiColorNotificationLed) {
+            mApplicationPrefList = (PreferenceGroup) findPreference("applications_list");
+            mApplicationPrefList.setOrderingAsAdded(false);
+        }
     }
 
     private void refreshCustomApplicationPrefs() {
@@ -404,6 +423,24 @@ public class NotificationLightSettings extends SettingsPreferenceFragment implem
             app.timeoff = timeoff;
             savePackageList(true);
         }
+    }
+
+    protected void resetColors() {
+        ContentResolver resolver = getContentResolver();
+
+        // Reset to the framework default colors
+        Settings.System.putInt(resolver, NOTIFICATION_LIGHT_PULSE_DEFAULT_COLOR, mDefaultColor);
+        Settings.System.putInt(resolver, NOTIFICATION_LIGHT_PULSE_CALL_COLOR, mDefaultColor);
+        Settings.System.putInt(resolver, NOTIFICATION_LIGHT_PULSE_VMAIL_COLOR, mDefaultColor);
+
+        // Reset to the framework default custom pulse length & speed
+        Settings.System.putInt(resolver, NOTIFICATION_LIGHT_PULSE_CALL_LED_ON, mDefaultLedOn);
+        Settings.System.putInt(resolver, NOTIFICATION_LIGHT_PULSE_CALL_LED_OFF, mDefaultLedOff);
+
+        Settings.System.putInt(resolver, NOTIFICATION_LIGHT_PULSE_VMAIL_LED_ON, mDefaultLedOn);
+        Settings.System.putInt(resolver, NOTIFICATION_LIGHT_PULSE_VMAIL_LED_OFF, mDefaultLedOff);
+
+        refreshDefault();
     }
 
     public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {

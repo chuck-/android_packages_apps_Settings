@@ -52,6 +52,9 @@ import android.provider.Settings;
 import android.provider.Settings.SettingNotFoundException;
 import android.telephony.MSimTelephonyManager;
 import static android.telephony.TelephonyManager.SIM_STATE_ABSENT;
+import static android.telephony.TelephonyManager.SIM_STATE_READY;
+
+import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -77,8 +80,6 @@ public class MultiSimSettings extends PreferenceActivity implements DialogInterf
     private static final String CONFIG_SUB = "CONFIG_SUB";
     private static final String TUNE_AWAY = "tune_away";
     private static final String PRIORITY_SUB = "priority_subscription";
-
-    private static final int DIALOG_SET_DATA_SUBSCRIPTION_IN_PROGRESS = 100;
 
     static final int EVENT_SET_DATA_SUBSCRIPTION_DONE = 1;
     static final int EVENT_SUBSCRIPTION_ACTIVATED = 2;
@@ -171,20 +172,12 @@ public class MultiSimSettings extends PreferenceActivity implements DialogInterf
         entriesPrompt = new CharSequence[MAX_SUBSCRIPTIONS + 1];
         entryValuesPrompt = new CharSequence[MAX_SUBSCRIPTIONS + 1];
         summariesPrompt = new CharSequence[MAX_SUBSCRIPTIONS + 1];
-        MSimTelephonyManager tm = MSimTelephonyManager.getDefault();
-        int i = 0;
-        for (i = 0; i < MAX_SUBSCRIPTIONS; i++) {
-            String operatorName = tm.getSimState(i) != SIM_STATE_ABSENT
-                    ? tm.getNetworkOperatorName(i) : getString(R.string.sub_no_sim);
-            String label = getString(R.string.multi_sim_entry_format, operatorName, i + 1);
-            entries[i] = summaries[i] = label;
-            entriesPrompt[i] = summariesPrompt[i] = label;
-            entryValues[i] = Integer.toString(i);
-            entryValuesPrompt[i] = Integer.toString(i);
-        }
+
+        int i = updateSimNameEntries();
+
         entryValuesPrompt[i] = Integer.toString(i);
         entriesPrompt[i] = getResources().getString(R.string.prompt);
-        summariesPrompt[i] = getResources().getString(R.string.prompt_user);
+        summariesPrompt[i] = getResources().getString(R.string.prompt);
         mReceiver = new AirplaneModeBroadcastReceiver();
         mIsAirplaneModeOn = isAirplaneModeOn();
     }
@@ -193,8 +186,21 @@ public class MultiSimSettings extends PreferenceActivity implements DialogInterf
     protected void onResume() {
         super.onResume();
         mIsForeground = true;
+        updateSimNameEntries();
         registerForAirplaneMode();
         updateUi();
+    }
+
+    private int updateSimNameEntries()  {
+        int i = 0;
+        for (i = 0; i < MAX_SUBSCRIPTIONS; i++) {
+            String label = MSimTelephonyManager.getFormattedSimName(this, i);
+            entries[i] = summaries[i] = label;
+            entriesPrompt[i] = summariesPrompt[i] = label;
+            entryValues[i] = Integer.toString(i);
+            entryValuesPrompt[i] = Integer.toString(i);
+        }
+        return i;
     }
 
     /**
@@ -365,6 +371,11 @@ public class MultiSimSettings extends PreferenceActivity implements DialogInterf
         }
     }
 
+    private void setDataSummaryUpdating() {
+        mData.setEnabled(false);
+        mData.setSummary(getResources().getString(R.string.set_data_subscription_progress));
+    }
+
     private void updateDataSummary() {
         int dataSub = MSimPhoneFactory.getDataSubscription();
 
@@ -372,6 +383,9 @@ public class MultiSimSettings extends PreferenceActivity implements DialogInterf
         mData.setValue(Integer.toString(dataSub));
         if (!mIsAirplaneModeOn) {
             mData.setSummary(summaries[dataSub]);
+        }
+        if (mIsForeground) {
+            mData.setEnabled(true);
         }
     }
 
@@ -437,7 +451,7 @@ public class MultiSimSettings extends PreferenceActivity implements DialogInterf
             int dataSub = Integer.parseInt((String) objValue);
             Log.d(TAG, "setDataSubscription " + dataSub);
             if (mIsForeground) {
-                showDialog(DIALOG_SET_DATA_SUBSCRIPTION_IN_PROGRESS);
+                setDataSummaryUpdating();
             }
             SubscriptionManager mSubscriptionManager = SubscriptionManager.getInstance();
             Message setDdsMsg = Message.obtain(mHandler, EVENT_SET_DATA_SUBSCRIPTION_DONE, null);
@@ -488,30 +502,6 @@ public class MultiSimSettings extends PreferenceActivity implements DialogInterf
         }
 
         return true;
-    }
-
-
-    @Override
-    protected Dialog onCreateDialog(int id) {
-        if (id == DIALOG_SET_DATA_SUBSCRIPTION_IN_PROGRESS) {
-            ProgressDialog dialog = new ProgressDialog(this);
-
-            dialog.setMessage(getResources().getString(R.string.set_data_subscription_progress));
-            dialog.setCancelable(false);
-            dialog.setIndeterminate(true);
-
-            return dialog;
-        }
-        return null;
-    }
-
-    @Override
-    protected void onPrepareDialog(int id, Dialog dialog) {
-        if (id == DIALOG_SET_DATA_SUBSCRIPTION_IN_PROGRESS) {
-            // when the dialogs come up, we'll need to indicate that
-            // we're in a busy state to disallow further input.
-            getPreferenceScreen().setEnabled(false);
-        }
     }
 
     // This is a method implemented for DialogInterface.OnDismissListener
@@ -576,10 +566,6 @@ public class MultiSimSettings extends PreferenceActivity implements DialogInterf
             switch(msg.what) {
                 case EVENT_SET_DATA_SUBSCRIPTION_DONE:
                     Log.d(TAG, "EVENT_SET_DATA_SUBSCRIPTION_DONE");
-                    if (mIsForeground) {
-                        dismissDialog(DIALOG_SET_DATA_SUBSCRIPTION_IN_PROGRESS);
-                    }
-                    getPreferenceScreen().setEnabled(true);
                     updateDataSummary();
 
                     ar = (AsyncResult) msg.obj;
